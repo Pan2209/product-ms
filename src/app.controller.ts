@@ -1,12 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
+import { ProductoService } from '../src/producto/producto.service';
 
 @Controller()
-export class AppController {
-  constructor(private readonly appService: AppService) {}
+export class ProductoController {
+constructor(private readonly productoService: ProductoService) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
+@EventPattern('crear_producto')
+async manejarCreacionProducto(@Payload() data: any) {
+return this.productoService.crearProducto(data);
+}
 }
