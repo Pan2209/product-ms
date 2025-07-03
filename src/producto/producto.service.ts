@@ -1,4 +1,10 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  OnModuleInit,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -13,15 +19,34 @@ export class ProductoService implements OnModuleInit {
     await this.gatewayClient.connect();
   }
 
-  async enviarProductoCreado(producto: any) {
+  private async enviarProductoCreado(producto: any) {
     this.gatewayClient.emit('producto_creado', producto);
   }
 
   async crearProducto(data: any) {
-    const nuevoProducto = await this.prisma.producto.create({
-      data,
+    try {
+      const nuevoProducto = await this.prisma.producto.create({
+        data,
+      });
+      await this.enviarProductoCreado(nuevoProducto);
+      return nuevoProducto;
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('El nombre del producto ya existe.');
+      }
+      throw error;
+    }
+  }
+
+  async obtenerProductoPorId(id: number) {
+    const producto = await this.prisma.producto.findUnique({
+      where: { id },
     });
-    await this.enviarProductoCreado(nuevoProducto);
-    return nuevoProducto;
+
+    if (!producto) {
+      throw new NotFoundException('Producto no encontrado.');
+    }
+
+    return producto;
   }
 }
