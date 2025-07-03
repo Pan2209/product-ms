@@ -1,126 +1,200 @@
-🛍️ product‑ms
-Microservicio de gestión de productos basado en NestJS, con almacenamiento en base de datos Prisma y emisión de eventos hacia un Gateway microservicio vía TCP.
+# 🛍️ Microservicio de Productos - `product-ms`
 
-📦 Tecnologías
-NestJS (Node.js, TypeScript)
+Este proyecto es un microservicio desarrollado con **NestJS** para gestionar productos dentro de un sistema distribuido. Forma parte de una arquitectura basada en microservicios y se comunica con un **Gateway** mediante protocolo **TCP**. Su función principal es registrar y consultar productos en una base de datos mediante **Prisma ORM** y emitir eventos al Gateway cuando se crea un nuevo producto.
 
-Prisma ORM con MySQL/PostgreSQL/SQLite
+---
 
-@nestjs/microservices para comunicación TCP (ClientProxy / Gateway)
+## 🚀 ¿Cómo Funciona?
 
-Validación básica manual en controlador (sin DTO)
+El microservicio expone dos endpoints REST:
 
-Manejo de errores HTTP (400, 404, 409)
+* `POST /productos`: Crea un nuevo producto.
+* `GET /productos/:id`: Consulta un producto existente por su ID.
 
-🚀 Instalación
-Clona el repositorio:
+Cuando se crea un producto, el microservicio:
 
-bash
-Copiar
-Editar
-git clone https://github.com/Pan2209/product-ms.git
-cd product-ms
-Instala dependencias:
+1. Valida los datos manualmente (sin DTO).
+2. Guarda el producto en la base de datos usando Prisma.
+3. Emite un evento `producto_creado` al Gateway a través de comunicación TCP con los datos del producto recién creado.
 
-bash
-Copiar
-Editar
-npm install
-Configura .env con tus credenciales de base de datos. Ejemplo:
+También, cuando se consulta un producto por ID, lo recupera de la base de datos o devuelve un error si no existe.
 
-env
-Copiar
-Editar
-DATABASE_URL="mysql://user:password@localhost:3306/mydb"
-Ejecuta migración Prisma:
+---
 
-bash
-Copiar
-Editar
-npx prisma migrate dev --name init_products
-⚙️ Estructura del proyecto
-graphql
-Copiar
-Editar
+## 🔁 Flujo de Datos
+
+```text
+Cliente REST → /productos (POST)
+  └─> Valida datos manualmente
+      └─> Prisma guarda en BD
+          └─> Se emite evento 'producto_creado' vía TCP al Gateway
+
+Cliente REST → /productos/:id (GET)
+  └─> Prisma busca por ID
+      └─> Retorna el producto o error 404 si no existe
+```
+
+---
+
+## ⚙️ Tecnologías Usadas
+
+| Tecnología        | Uso principal                                       |
+| ----------------- | --------------------------------------------------- |
+| **NestJS**        | Framework principal para construir el microservicio |
+| **Prisma ORM**    | Manejo de base de datos y modelos                   |
+| **Microservices** | Comunicación TCP con el Gateway (`ClientProxy`)     |
+| **Node.js**       | Plataforma de ejecución backend                     |
+| **TypeScript**    | Lenguaje principal para el desarrollo del servicio  |
+
+---
+
+## 🧱 ¿Cómo Fueron Usadas?
+
+* **NestJS** se utilizó como núcleo del backend, permitiendo modularidad, inyección de dependencias y arquitectura escalable.
+* **Prisma** fue usado para definir el modelo `Product`, generar migraciones y acceder a la base de datos de forma segura y eficiente.
+* **ClientProxy (TCP)** permite al microservicio emitir eventos al Gateway (`producto_creado`) cada vez que se crea un nuevo producto.
+* Las validaciones fueron implementadas manualmente dentro del controlador (no se usaron DTOs ni `class-validator`).
+
+---
+
+## 📁 Estructura del Proyecto
+
+```bash
 src/
 ├── prisma/
-│   └── schema.prisma       # Modelo Product
+│   └── schema.prisma       # Definición del modelo Product
 ├── producto/
-│   ├── dto/                # DTOs (opcional, no usado actualmente)
-│   ├── producto.controller.ts
-│   ├── producto.service.ts
-│   └── producto.module.ts
-└── main.ts                 # Arranque de la app NestJS
-📌 Uso
-Crear un producto
-Endpoint: POST /productos
+│   ├── producto.controller.ts # Controlador con endpoints
+│   ├── producto.service.ts    # Lógica de negocio y comunicación TCP
+│   └── producto.module.ts     # Configuración del microservicio y TCP Client
+└── main.ts                    # Arranque de la aplicación NestJS
+```
 
-Body JSON:
+---
 
-json
-Copiar
-Editar
+## 📡 Endpoints Disponibles
+
+### 🔸 POST `/productos`
+
+Crea un producto nuevo.
+
+#### 📤 JSON de entrada:
+
+```json
 {
-  "name": "Nombre del producto",
-  "price": 100.5,
-  "description": "Descripción opcional"
+  "name": "Zapatos deportivos",
+  "price": 75.50,
+  "description": "Color negro, talla 42"
 }
-Respuestas:
+```
 
-201 Created: producto creado y enviado vía evento producto_creado
+#### 📥 Respuestas:
 
-400 Bad Request: datos inválidos
+* `201 Created`: Producto creado correctamente
+* `400 Bad Request`: Faltan campos o datos inválidos
+* `409 Conflict`: Nombre duplicado (único)
 
-409 Conflict: nombre duplicado
+---
 
-Consultar un producto por ID
-Endpoint: GET /productos/:id
+### 🔹 GET `/productos/:id`
 
-Respuestas:
+Consulta un producto por su ID.
 
-200 OK: devuelve el producto
+#### 📌 Ejemplo:
 
-404 Not Found: si no existe
+```bash
+GET /productos/3
+```
 
-🧩 Comunicación con Gateway
-Se utiliza ClientProxy de NestJS con transporte TCP:
+#### 📥 Respuestas:
 
-ts
-Copiar
-Editar
+* `200 OK`: Producto encontrado
+* `404 Not Found`: No existe un producto con ese ID
+
+---
+
+## 🧩 Comunicación con el Gateway
+
+Este microservicio está conectado con un Gateway TCP (otro microservicio NestJS). Al crear un producto, se emite:
+
+```ts
+this.gatewayClient.emit('producto_creado', nuevoProducto);
+```
+
+La conexión TCP se configura así en `producto.module.ts`:
+
+```ts
 ClientsModule.register([
   {
     name: 'GATEWAY',
     transport: Transport.TCP,
-    options: { host: '192.168.20.76', port: 3001 },
+    options: {
+      host: '192.168.20.76',
+      port: 3001,
+    },
   },
-]);
-Al crear un producto se emite el evento:
+])
+```
 
-ts
-Copiar
-Editar
-gatewayClient.emit('producto_creado', nuevoProducto);
-🛠️ Notas / Siguientes pasos
-Agregar DTOs con class-validator para validación estructurada.
+---
 
-Implementar endpoints PATCH /productos/:id y DELETE /productos/:id.
+## 📦 Instalación y Uso
 
-Añadir pruebas unitarias/integración con Jest.
+### 1️⃣ Clona el repositorio:
 
-Incluir Swagger (@nestjs/swagger) para documentación automática.
+```bash
+git clone https://github.com/Pan2209/product-ms.git
+cd product-ms
+```
 
-Manejar mejor errores de conexión TCP o reintentos.
+### 2️⃣ Instala dependencias:
 
-Considerar usar transacciones Prisma si se amplía la lógica.
+```bash
+npm install
+```
 
-📝 Scripts útiles
-bash
-Copiar
-Editar
-npm run start:dev      # modo desarrollo
-npm run build          # construcción del proyecto
-npm run start:prod     # modo producción
-npx prisma studio      # interfaz visual de Prisma
-👤 Autor
-Pan2209 — Creador del microservicio de productos. ¡Feedback y mejoras bienvenidas!
+### 3️⃣ Configura la base de datos en el archivo `.env`:
+
+```env
+DATABASE_URL="mysql://usuario:contraseña@localhost:3306/productos_db"
+```
+
+### 4️⃣ Aplica las migraciones Prisma:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+### 5️⃣ Ejecuta el microservicio:
+
+```bash
+npm run start:dev
+```
+
+---
+
+## 🔧 Comandos Útiles
+
+```bash
+npm run start:dev      # Ejecutar en modo desarrollo
+npm run build          # Compilar para producción
+npx prisma studio      # Visualizador de la base de datos
+```
+
+---
+
+## 📌 Pendientes y Mejoras Futuras
+
+* [ ] Agregar DTOs y validación automática con `class-validator`
+* [ ] Implementar `PATCH` y `DELETE` para productos
+* [ ] Documentación Swagger (`@nestjs/swagger`)
+* [ ] Tests unitarios e integración (Jest)
+* [ ] Dockerización del servicio
+* [ ] Retry y timeout para fallos de conexión TCP
+
+---
+
+## 👤 Autor
+
+Desarrollado por **Pan2209**
+Este microservicio forma parte de un sistema distribuido. ¡Feedback, sugerencias y PRs son bienvenidos!
