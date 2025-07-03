@@ -49,4 +49,10 @@ export class ProductoService implements OnModuleInit {
 
     return producto;
   }
+
+  getAllProducts() {
+    const producto = this.prisma.producto.findMany()
+    return producto
+  }
+  
 }

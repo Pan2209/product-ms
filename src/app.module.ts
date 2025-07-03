@@ -12,7 +12,7 @@ import { PrismaModule } from './prisma/prisma.module';
         name: 'GATEWAY',
         transport: Transport.TCP,
         options: {
-          host: '192.168.20.76',  // IP del gateway
+          host: '192.168.20.160',  // IP del gateway
           port: 3001,              // Puerto del gateway
         },
       },

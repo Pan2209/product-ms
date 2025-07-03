@@ -54,4 +54,9 @@ export class ProductoController {
     }
     return producto;
   }
+
+  @MessagePattern('getAllProducts')
+  findAllProducts(){
+    return this.productoService.getAllProducts()
+  }
 }

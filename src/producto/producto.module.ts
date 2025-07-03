@@ -12,7 +12,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
         name: 'GATEWAY',
         transport: Transport.TCP,
         options: {
-          host: '192.168.20.76',
+          host: '192.168.20.160',
           port: 3001,
         },
       },

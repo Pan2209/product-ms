@@ -10,4 +10,6 @@ constructor(private readonly productoService: ProductoService) {}
 async manejarCreacionProducto(@Payload() data: any) {
 return this.productoService.crearProducto(data);
 }
+
+
 }
